@@ -177,8 +177,8 @@ try:
     print(f"R = 200 Ω: 基于电压的实验Q值 = {Q_200_exp_UC:.4f}")
     Q_200_theo = math.sqrt(L / ((R_200 + R0 + RL) ** 2 * C))
     print(f"R = 200 Ω: 理论Q值(RL Fixed) = {Q_200_theo:.4f}")
-    Q_200_theo = math.sqrt(L / ((R_200 / U_200.max()) ** 2 * C))
-    print(f"R = 200 Ω: 理论Q值(RL Variable) = {Q_200_theo:.4f}")
+    Q_200_theo_var = math.sqrt(L / ((R_200 / U_200.max()) ** 2 * C))
+    print(f"R = 200 Ω: 理论Q值(RL Variable) = {Q_200_theo_var:.4f}")
 
 except Exception:
     print("R = 200 Ω: 无法找到交点")
@@ -207,14 +207,14 @@ try:
     print(f"R = 500 Ω: 左交点与f0差值 = {diff_500_left:.2f} Hz")
     print(f"R = 500 Ω: 右交点与f0差值 = {diff_500_right:.2f} Hz")
     print(f"R = 500 Ω: 带宽 = {bandwidth_500:.2f} Hz")
-    Q_500_exp = f0_500 / bandwidth_500
-    print(f"R = 500 Ω: 基于频率的实验Q值 = {Q_500_exp:.4f}")
+    Q_500_exp_f = f0_500 / bandwidth_500
+    print(f"R = 500 Ω: 基于频率的实验Q值 = {Q_500_exp_f:.4f}")
     Q_500_exp_UC = UC_500 / E
     print(f"R = 500 Ω: 基于电压的实验Q值 = {Q_500_exp_UC:.4f}")
     Q_500_theo = math.sqrt(L / ((R_500 + R0 + RL) ** 2 * C))
     print(f"R = 500 Ω: 理论Q值(RL Fixed) = {Q_500_theo:.4f}")
-    Q_500_theo = math.sqrt(L / ((R_500 / U_500.max()) ** 2 * C))
-    print(f"R = 500 Ω: 理论Q值(RL Variable) = {Q_500_theo:.4f}")
+    Q_500_theo_var = math.sqrt(L / ((R_500 / U_500.max()) ** 2 * C))
+    print(f"R = 500 Ω: 理论Q值(RL Variable) = {Q_500_theo_var:.4f}")
 
 except Exception:
     print("R = 500 Ω: 无法找到交点")
