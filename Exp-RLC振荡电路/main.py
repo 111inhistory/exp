@@ -75,44 +75,46 @@ plt.axvline(
 # plt.plot(f_500, I_500, label='R = 500 Ω', color='orange')
 
 
-def smooth(
-    x: np.ndarray, y: np.ndarray, x_peak, window_size=3
-) -> tuple[np.ndarray, np.ndarray]:
-    mask = (x >= x_peak - window_size) & (x <= x_peak + window_size)
+# # Avoid Runge's phenomenon
+# def smooth(
+#     x: np.ndarray, y: np.ndarray, x_peak, window_size=3
+# ) -> tuple[np.ndarray, np.ndarray]:
+#     mask = (x >= x_peak - window_size) & (x <= x_peak + window_size)
 
-    x_masked = x[mask]
-    # y_masked = y[mask]
-    # print(x_masked, "\n", y_masked)
+#     x_masked = x[mask]
+#     # y_masked = y[mask]
+#     # print(x_masked, "\n", y_masked)
 
-    x_new, y_new = (
-        np.linspace(x_masked[0], x_masked[-1], 4),
-        np.empty(4),
-    )
+#     x_new, y_new = (
+#         np.linspace(x_masked[0], x_masked[-1], 4),
+#         np.empty(4),
+#     )
 
-    left = interpolate.interp1d(
-        x[x <= x_peak + 0.00001], y[x <= x_peak + 0.00001], kind=2
-    )
-    right = interpolate.interp1d(
-        x[x >= x_peak - 0.00001], y[x >= x_peak - 0.00001], kind=2
-    )
+#     left = interpolate.interp1d(
+#         x[x <= x_peak + 0.00001], y[x <= x_peak + 0.00001], kind=1
+#     )
+#     right = interpolate.interp1d(
+#         x[x >= x_peak - 0.00001], y[x >= x_peak - 0.00001], kind=1
+#     )
 
-    y_new[:3] = left(x_new[:3])
-    y_new[3:] = right(x_new[3:])
-    # print(x_new, "\n", y_new)
-    x_res = np.concatenate((x[~mask], x_new))
-    y_res = np.concatenate((y[~mask], y_new))
+#     y_new[:3] = left(x_new[:3])
+#     y_new[3:] = right(x_new[3:])
+#     # print(x_new, "\n", y_new)
+#     x_res = np.concatenate((x[~mask], x_new))
+#     y_res = np.concatenate((y[~mask], y_new))
 
-    plt.scatter(x_new, y_new, color="red", s=10, label="Smoothed Points", marker="x")
+#     plt.scatter(x_new, y_new, color="red", s=10, label="Smoothed Points", marker="x")
 
-    sorted_indices = np.argsort(x_res)
-    return x_res[sorted_indices], y_res[sorted_indices]
+#     sorted_indices = np.argsort(x_res)
+#     return x_res[sorted_indices], y_res[sorted_indices]
 
 
-f_200_smooth, I_200_smooth = smooth(f_200, I_200, f0_200, window_size=5)
+# f_200_smooth, I_200_smooth = smooth(f_200, I_200, f0_200, window_size=5)
 
 
 x_linspace = np.linspace(1600, 3000, 100000)
-f_200_interp = interpolate.interp1d(f_200_smooth, I_200_smooth, kind=3)
+# f_200_interp = interpolate.interp1d(f_200_smooth, I_200_smooth, kind=3)
+f_200_interp = interpolate.interp1d(f_200, I_200, kind=3)
 f_500_interp = interpolate.interp1d(f_500, I_500, kind=3)
 I_200_smooth = f_200_interp(x_linspace)
 I_500_smooth = f_500_interp(x_linspace)
@@ -236,6 +238,8 @@ draw_hline(
     linewidth=0.8,
     label="R = 500 Ω: I_max/√2",
 )
+
+plt.xlim(1500, 3100)
 
 plt.xlabel("Frequency (Hz)")
 plt.ylabel("Current (A)")
