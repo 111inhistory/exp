@@ -71,3 +71,7 @@ __pypackages__/
 .mypy_cache/
 
 Exp-RLC振荡电路/Exp-RLC振荡电路.zip
+
+.venv/
+.env/
+.pyenv/
