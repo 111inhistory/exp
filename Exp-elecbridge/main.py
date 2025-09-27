@@ -20,7 +20,8 @@ def poly_fit(x: np.ndarray, y: np.ndarray, degree: int) -> tuple[np.poly1d, floa
     return poly, corr_xy
 
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(40, 12))
+# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(40, 12))
+fig, ax2 = plt.subplots(figsize=(20, 12))
 ax1: plt.Axes
 ax2: plt.Axes
 
@@ -42,21 +43,21 @@ S_error = np.vstack((
 # xnew1 = np.linspace(size.min(), size.max(), 100)
 # ynew1 = int_func1(xnew1)
 
-regr_func, corr1 = poly_fit(size.values, S.values, 1)
-xnew1_ = np.linspace(size.min(), size.max(), 100)
-ynew1_ = regr_func(xnew1_)
-print(f"R of data set 1 is {corr1:.4f}")
+# regr_func, corr1 = poly_fit(size.values, S.values, 1)
+# xnew1_ = np.linspace(size.min(), size.max(), 100)
+# ynew1_ = regr_func(xnew1_)
+# print(f"R of data set 1 is {corr1:.4f}")
 
-ax1.scatter(size, S, label="size")
-ax1.errorbar(size, S, yerr=S_error, fmt="o", label="error bar")
-# ax1.plot(xnew1, ynew1, "r-", label="cubic interpolation")
-ax1.plot(xnew1_, ynew1_, "r-", label="linear regression")
+# ax1.scatter(size, S, label="size")
+# ax1.errorbar(size, S, yerr=S_error, fmt="o", capsize=5, label="error bar")
+# # ax1.plot(xnew1, ynew1, "r-", label="cubic interpolation")
+# ax1.plot(xnew1_, ynew1_, "r-", label="linear regression")
 
-ax1.set_xlabel("arm size (m)")
-ax1.set_ylabel("S")
-ax1.set_title("Delta r vs Arm Size")
-ax1.legend()
-ax1.grid()
+# ax1.set_xlabel("R1 (Ω)")
+# ax1.set_ylabel("S")
+# ax1.set_title("Delta R - R1")
+# ax1.legend()
+# ax1.grid()
 
 # # 填充r0为r0.avg
 # r0 = np.array([r0.mean()] * len(df))
@@ -83,7 +84,12 @@ E = 2.5
 
 
 def perform_curve_fit_and_plot(
-    ax: plt.Axes, x_data: np.ndarray, y_data: np.ndarray, curve_func, p0: list
+    ax: plt.Axes,
+    x_data: np.ndarray,
+    y_data: np.ndarray,
+    y_err,
+    curve_func,
+    p0: list,
 ):
     """
     对数据进行非线性拟合，并绘制结果。
@@ -102,7 +108,9 @@ def perform_curve_fit_and_plot(
     y_new = curve_func(x_new, *popt)
 
     ax.plot(x_new, y_new, label="non-linear regression")
-    ax.scatter(x_data, y_data, label="data points")
+    ax.errorbar(
+        x_data, y_data, yerr=y_err, fmt="o", capsize=5, label="data points"
+    )
     ax.legend()
     ax.set_title("Delta R - R1 (with non-linear regression)")
     ax.grid()
@@ -140,9 +148,34 @@ def curve(R1, C, Rx, Rg):
 r1 = size.values
 delta_r = (r0 - r0_).abs().values
 S = n / (delta_r / r0.values)
+print(S)
 
 initial_guess = [1, r0.mean() / 10, 100]
-perform_curve_fit_and_plot(ax2, r1, S, curve, p0=initial_guess)
+perform_curve_fit_and_plot(ax2, r1, S, S_error, curve, p0=initial_guess)
+
+x_theo = np.linspace(r1.min(), r1.max(), 100)
+# 绘制两条理论曲线并填充
+curve_theo1 = curve(x_theo, 1e7, 6150, 100)
+curve_theo2 = curve(x_theo, 1e7, 6150, 3500)
+ax2.plot(x_theo, curve_theo1, "g--", label="theoretical curve (Rg=100)")
+ax2.plot(x_theo, curve_theo2, "b--", label="theoretical curve (Rg=3500)")
+ax2.fill_between(
+    x_theo,
+    curve_theo1,
+    curve_theo2,
+    color="gray",
+    alpha=0.3,
+    label="theoretical range",
+)
+ax2.legend()
+ax2.set_xlabel("R1 (Ω)")
+ax2.set_ylabel("S")
+fig.tight_layout(w_pad=6)
+
+# delta_r = (r0.mean() - r0_).abs()
+# S = n / (delta_r / r0)
+# perform_curve_fit_and_plot(ax2, r1, S, curve, p0=initial_guess)
+
 
 # S1 = np.concatenate((S[0:2], S[2:4] - S_error[0, 2:4], [S[4]]))
 # S2 = np.concatenate((S[0:2], S[2:4] + S_error[1, 2:4], [S[4]]))
@@ -150,5 +183,5 @@ perform_curve_fit_and_plot(ax2, r1, S, curve, p0=initial_guess)
 # perform_curve_fit_and_plot(ax2, r1, S1, curve, p0=initial_guess)
 # perform_curve_fit_and_plot(ax2, r1, S2, curve, p0=initial_guess)
 
-plt.show()
+# plt.show()
 fig.savefig("Delta_r_vs_ArmSize.png", dpi=300)

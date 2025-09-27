@@ -44,6 +44,7 @@ def draw_lin_regr(ax2: plt.Axes, df2: pd.DataFrame, **kwargs):
 
 E, S1, xnew2_, ynew2_ = draw_lin_regr(ax2, df2, color="r")
 ax2.scatter(E, S1, label="E")
+print(S1)
 # Drop point 2 (in desc order of E)
 df2.drop(1, axis=0, inplace=True)
 draw_lin_regr(ax2, df2, label="linear regression (drop point 2)", color="g")
