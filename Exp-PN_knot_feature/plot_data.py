@@ -3,12 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
+import scienceplots
 import warnings
 import re
 
 # Suppress warnings from polyfit for clarity
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
+
+plt.style.use(['science', 'no-latex', 'cjk-sc-font'])
 
 
 def generate_report(exponential_results, linear_results):
@@ -85,15 +88,15 @@ def main():
     e_charge = 1.60217663e-19  # Elementary charge in Coulombs
 
     # --- Setup Matplotlib ---
-    plt.rcParams.update({
-        'font.family': 'sans-serif',
-        'font.sans-serif': ['Microsoft YaHei'],
-        'axes.unicode_minus': False, 'font.size': 12, 'axes.labelsize': 14,
-        'axes.titlesize': 16, 'xtick.labelsize': 12, 'ytick.labelsize': 12,
-        'legend.fontsize': 10, 'figure.figsize': (8, 6), 'lines.linewidth': 2,
-        'lines.markersize': 5, 'axes.grid': True, 'grid.linestyle': '--',
-        'grid.alpha': 0.7, 'figure.dpi': 300
-    })
+    # plt.rcParams.update({
+    #     'font.family': 'sans-serif',
+    #     'font.sans-serif': ['Microsoft YaHei'],
+    #     'axes.unicode_minus': False, 'font.size': 12, 'axes.labelsize': 14,
+    #     'axes.titlesize': 16, 'xtick.labelsize': 12, 'ytick.labelsize': 12,
+    #     'legend.fontsize': 10, 'figure.figsize': (8, 6), 'lines.linewidth': 2,
+    #     'lines.markersize': 5, 'axes.grid': True, 'grid.linestyle': '--',
+    #     'grid.alpha': 0.7, 'figure.dpi': 300
+    # })
 
     try:
         xls = pd.ExcelFile(excel_file_path)
