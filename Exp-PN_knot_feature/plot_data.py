@@ -1,14 +1,20 @@
 import pandas as pd
 import numpy as np
+import scienceplots
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 import warnings
 import re
 
+from mplfonts import use_font
+use_font('Noto Serif SC')
+
 # Suppress warnings from polyfit for clarity
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
+
+plt.style.use(['science', 'no-latex'])
 
 
 def generate_report(exponential_results, linear_results):
@@ -20,7 +26,7 @@ def generate_report(exponential_results, linear_results):
         f.write("# PN结特性实验拟合报告\n\n")
 
         f.write("## 1. I-V 特性指数拟合\n\n")
-        f.write("根据物理模型 $I_F = I_s \cdot e^{eU_F/(n k_B T)}$，我们对不同温度下的数据进行线性化拟合。\n\n")
+        f.write("根据物理模型 $I_F = I_s \\cdot e^{eU_F/(n k_B T)}$，我们对不同温度下的数据进行线性化拟合。\n\n")
         f.write(f"使用的玻尔兹曼常数标准值为: $k_B = {k_B:.6e}$ J/K。\n\n")
         f.write("拟合得到的参数 `k_fit` 实际上对应于 `n * k_B`，其中 `n` 是理想因子。因此，我们计算 `n = k_fit / k_B` 来评估PN结的理想程度。\n\n")
 
@@ -57,7 +63,7 @@ def generate_report(exponential_results, linear_results):
             r_squared_linear = linear_results['r_squared_linear']
             data_linear = linear_results['data']
 
-            f.write("根据物理模型 $U_F = U_g + S \cdot T$，我们对正向电压和绝对温度的关系进行线性拟合。\n\n")
+            f.write("根据物理模型 $U_F = U_g + S \\cdot T$，我们对正向电压和绝对温度的关系进行线性拟合。\n\n")
             f.write("**拟合结果:**\n\n")
             f.write("| 参数 | 拟合值 | 单位 |\n")
             f.write("|:---|:---|:---|\n")
@@ -84,15 +90,14 @@ def main():
     excel_file_path = '在特定温度下pn结正向电压和正向电流的关系.xlsx'
     e_charge = 1.60217663e-19  # Elementary charge in Coulombs
 
-    # --- Setup Matplotlib ---
+    # # --- Setup Matplotlib ---
     plt.rcParams.update({
         'font.family': 'sans-serif',
-        'font.sans-serif': ['Microsoft YaHei'],
-        'axes.unicode_minus': False, 'font.size': 12, 'axes.labelsize': 14,
-        'axes.titlesize': 16, 'xtick.labelsize': 12, 'ytick.labelsize': 12,
-        'legend.fontsize': 10, 'figure.figsize': (8, 6), 'lines.linewidth': 2,
-        'lines.markersize': 5, 'axes.grid': True, 'grid.linestyle': '--',
-        'grid.alpha': 0.7, 'figure.dpi': 300
+        'font.sans-serif': ['Noto Serif SC'],
+        'font.size': 8, # Smaller font for a more compact plot
+    #     'font.weight': 'normal',
+    #     'font.variant': 'normal',
+    #     'font.stretch': 'normal',
     })
 
     try:
@@ -102,14 +107,27 @@ def main():
         return
 
     sheet_names = xls.sheet_names
-    print(f"找到工作表: {sheet_names}")
+    num_exp_sheets = len(sheet_names) - 1
+    print(f"找到 {len(sheet_names)} 个工作表: {sheet_names}")
 
     exponential_results = []
     linear_results = {}
 
-    # --- Part 1: Exponential Fits ---
+    # --- Create a single figure with a GridSpec layout ---
+    # Figure size suitable for a half-page width in a paper (e.g., ~7 inches wide)
+    fig = plt.figure(figsize=(8, 6.5))
+    gs = fig.add_gridspec(2, 2, height_ratios=[1, 1], width_ratios=[1, 1])
+    
+    ax_exp = fig.add_subplot(gs[0, :])  # Top plot spanning 2 columns
+    ax_lin = fig.add_subplot(gs[1, 0])  # Bottom-left plot
+    ax_last = fig.add_subplot(gs[1, 1]) # Bottom-right plot
+
+    # Define a color cycle for the plots
+    colors = plt.cm.viridis(np.linspace(0, 1, num_exp_sheets))
+
+    # --- Part 1: Exponential Fits (for ax_exp and ax_lin) ---
     for index, sheet_name in enumerate(sheet_names[:-1]):
-        df = pd.read_excel(xls, sheet_name=sheet_name, header=None) # BUG FIX: Added header=None
+        df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
 
         temp_val_str = None
         for _, row in df.iterrows():
@@ -187,52 +205,30 @@ def main():
             def exp_model_func(u, i_s, k_val):
                 return i_s * np.exp(e_charge * u / (k_val * temp_k))
 
-            fit_label = (
-                f'线性化拟合: $I_F = I_s \cdot e^{{eU_F/kT}}$\n'
-                f'$I_s = {I_s_fit:.3e}$ µA\n'
-                f'$k = {k_fit:.3e}$ J/K\n'
-                f'$R^2 = {r_squared:.5f}$ (线性)'
-            )
-
             U_F_curve = np.linspace(U_F.min(), U_F.max(), 200)
             I_F_curve = exp_model_func(U_F_curve, I_s_fit, k_fit)
             
-            plt.figure()
-            plt.semilogy(U_F, I_F, 'o', label='实验数据')
-            plt.semilogy(U_F_curve, I_F_curve, 'r-', label=fit_label)
-            plt.xlabel('正向电压 $U_F$ (V)')
-            plt.ylabel('正向电流 $I_F$ (µA)')
-            plt.title(f'PN结伏安特性曲线 ({temp_c}°C)')
-            plt.legend()
-            plt.grid(True, which="major", ls="--")
-            plt.tight_layout()
+            color = colors[index]
+            label = f'{temp_c}°C'
             
-            filename = f'fit_exponential_{temp_c}C.png'
-            plt.savefig(filename)
-            plt.close()
-            print(f"成功生成图表: {filename} (R²={r_squared:.5f})")
+            # Plot on exponential axis (top)
+            ax_exp.semilogy(U_F, I_F, 'o', color=color, markersize=3)
+            ax_exp.semilogy(U_F_curve, I_F_curve, '-', color=color, linewidth=1.5, label=f'{label} ($R^2={r_squared:.3f}$)')
 
-            plt.figure()
-            plt.plot(U_F, I_F, 'o', label='实验数据')
-            plt.plot(U_F_curve, I_F_curve, 'r-', label=fit_label)
-            plt.xlabel('正向电压 $U_F$ (V)')
-            plt.ylabel('正向电流 $I_F$ (µA)')
-            plt.title(f'PN结伏安特性曲线 ({temp_c}°C) - 线性坐标')
-            plt.legend()
-            plt.tight_layout()
-            filename_linear = f'fit_exponential_linear_scale_{temp_c}C.png'
-            plt.savefig(filename_linear)
-            plt.close()
-            print(f"成功生成图表: {filename_linear}")
+            # Plot on linear axis (bottom-left)
+            ax_lin.plot(U_F, I_F, 'o', color=color, markersize=3)
+            ax_lin.plot(U_F_curve, I_F_curve, '-', color=color, linewidth=1.5, label=f'{label} ($R^2={r_squared:.3f}$)')
+            
+            print(f"已处理工作表 '{sheet_name}' (T={temp_c}°C) 的数据用于合并绘图。")
 
         except Exception as e:
             print(f"错误: 无法对工作表 '{sheet_name}' 进行指数拟合: {e}")
 
-    # --- Part 2: Linear Fit ---
+    # --- Part 2: Linear Fit (Last Sheet, for ax_last) ---
     if sheet_names:
         last_sheet_name = sheet_names[-1]
         try:
-            df_linear = pd.read_excel(xls, sheet_name=last_sheet_name, header=0) # header=0 to use the first row as header
+            df_linear = pd.read_excel(xls, sheet_name=last_sheet_name, header=0)
             df_linear = df_linear.iloc[:, 1:3].apply(pd.to_numeric, errors='coerce').dropna()
             df_linear.columns = ['T', 'U_F']
             
@@ -251,40 +247,54 @@ def main():
                     'S_fit': S_fit,
                     'r_squared_linear': r_squared_linear
                 }
-
-                plt.figure()
-                plt.plot(T_linear, U_F_linear, 's', label='实验数据')
+                
+                ax_last.scatter(T_linear, U_F_linear, color=colors[0], s=15, label='实验数据')
                 
                 T_fit_line = np.array([T_linear.min(), T_linear.max()])
                 U_F_fit_line = S_fit * T_fit_line + U_g_fit
                 
                 fit_label_linear = (
-                    f'拟合: $U_F = U_g + S \cdot T$ \n'
-                    f'$U_g = {U_g_fit:.4f}$ V\n'
-                    f'$S = {S_fit:.4f}$ V/K\n'
-                    f'$R^2 = {r_squared_linear:.5f}$'
+                    f'拟合: $R^2 = {r_squared_linear:.4f}$'
                 )
-                plt.plot(T_fit_line, U_F_fit_line, 'b-', label=fit_label_linear)
+                ax_last.plot(T_fit_line, U_F_fit_line, '-', color=colors[3], label=fit_label_linear)
 
-                plt.xlabel('绝对温度 $T$ (K)')
-                plt.ylabel('正向电压 $U_F$ (V)')
-                plt.title('正向电压与温度关系')
-                plt.legend()
-                # Ensure the y-axis is not inverted
-                ymin, ymax = plt.ylim()
-                if ymin > ymax:
-                    plt.ylim(ymax, ymin)
-                plt.tight_layout()
-
-                filename_linear_plot = 'fit_linear_Uf_vs_T.png'
-                plt.savefig(filename_linear_plot)
-                plt.close()
-                print(f"成功生成图表: {filename_linear_plot}")
             else:
                 print(f"警告: 在工作表 '{last_sheet_name}' 中的数据不足以进行线性拟合。")
 
         except Exception as e:
             print(f"错误: 无法处理或拟合最后一个工作表 '{last_sheet_name}': {e}")
+
+    # --- Finalize and Save the Combined Figure ---
+    # (a) Exponential plot
+    ax_exp.set_xlabel('正向电压 $U_F$ (V)')
+    ax_exp.set_ylabel('正向电流 $I_F$ (µA)')
+    ax_exp.set_title('(a) PN结I-V特性 (指数坐标)', loc='left')
+    ax_exp.legend(fontsize=7)
+    ax_exp.grid(True, which="major", ls="--", linewidth=0.5)
+
+    # (b) Linear plot
+    ax_lin.set_xlabel('正向电压 $U_F$ (V)')
+    ax_lin.set_ylabel('正向电流 $I_F$ (µA)')
+    ax_lin.set_title('(b) PN结I-V特性 (线性坐标)', loc='left')
+    ax_lin.legend(fontsize=7)
+    ax_lin.grid(True, which="major", ls="--", linewidth=0.5)
+
+    # (c) U-T plot
+    ax_last.set_xlabel('绝对温度 $T$ (K)')
+    ax_last.set_ylabel('正向电压 $U_F$ (V)')
+    ax_last.set_title('(c) 正向电压与温度关系', loc='left')
+    ax_last.legend(fontsize=7)
+    ax_last.grid(True, which="major", ls="--", linewidth=0.5)
+    ymin, ymax = ax_last.get_ylim()
+    if ymin > ymax:
+        ax_last.set_ylim(ymax, ymin)
+
+    # Adjust layout and save the single figure
+    fig.tight_layout(pad=1.0)
+    combined_filename = 'pn_knot_combined_plots.png'
+    fig.savefig(combined_filename, dpi=1000)
+    plt.close(fig)
+    print(f"成功生成合并图表: {combined_filename}")
 
     # --- Part 3: Generate Report ---
     generate_report(exponential_results, linear_results)
