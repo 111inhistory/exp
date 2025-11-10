@@ -1,26 +1,44 @@
 import pandas as pd
 import numpy as np
 import scienceplots
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 import warnings
 import re
 
-from mplfonts import use_font
-use_font('Noto Serif SC')
+mpl.use("pgf")
+
+# 配置 PGF + XeLaTeX 环境
+pgf_config = {
+    "pgf.texsystem": "xelatex",               # 指定使用 xelatex 编译
+    "text.usetex": True,                      # 启用 LaTeX 渲染
+    "font.family": "serif",                   # 基本字体族
+    "font.size": 8,                          # 字号
+    "pgf.rcfonts": False,                     # 不使用 matplotlib 默认字体设置
+    "pgf.preamble": r"""
+        \usepackage{xeCJK}                    % 支持中文
+        \usepackage{unicode-math}            % 支持 unicode 数学符号，如 −
+        \setmainfont{Times New Roman}        % 英文字体
+        \setCJKmainfont{SimSun}              % 中文字体
+        \xeCJKsetup{CJKmath=true}            % 中文参与数学公式
+    """
+}
+
+# 应用配置
+mpl.rcParams.update(pgf_config)
 
 # Suppress warnings from polyfit for clarity
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-plt.style.use(['science', 'no-latex'])
+plt.style.use(['science', 'no-latex', 'grid'])
 
 
-def generate_report(exponential_results, linear_results):
+def generate_report(exponential_results, linear_results, report_path):
     """Generates a markdown report of the fitting results."""
     k_B = 1.380649e-23  # Boltzmann constant in J/K
-    report_path = 'results_report.md'
 
     with open(report_path, 'w', encoding='utf-8') as f:
         f.write("# PN结特性实验拟合报告\n\n")
@@ -40,7 +58,7 @@ def generate_report(exponential_results, linear_results):
             # Calculate ideality factor n
             n_factor = k_fit / k_B
 
-            f.write(f"### 1.{result['index']}. 温度: {temp_c}°C\n\n")
+            f.write(f"### 1.{result['index']}. 温度: {temp_c}\u2103\n\n")
             f.write("**拟合结果:**\n\n")
             f.write("| 参数 | 拟合值 | 单位 |\n")
             f.write("|:---|:---|:---|\n")
@@ -83,6 +101,15 @@ def generate_report(exponential_results, linear_results):
     print(f"成功生成报告: {report_path}")
 
 
+def format_scientific_latex(num, precision=2):
+    """Formats a number into scientific notation for LaTeX with no leading zeros in the exponent."""
+    s = f'{num:.{precision}e}'
+    mantissa, exponent = s.split('e')
+    # Remove leading zero from exponent
+    exponent_val = int(exponent)
+    return f'{mantissa} \\times 10^{{{exponent_val}}}'
+
+
 def main():
     """
     Main function to read data, perform fits, plot results, and generate a report.
@@ -93,7 +120,7 @@ def main():
     # # --- Setup Matplotlib ---
     plt.rcParams.update({
         'font.family': 'sans-serif',
-        'font.sans-serif': ['Noto Serif SC'],
+        'font.sans-serif': ['SimSun', 'Noto Serif SC'],
         'font.size': 8, # Smaller font for a more compact plot
     #     'font.weight': 'normal',
     #     'font.variant': 'normal',
@@ -111,21 +138,9 @@ def main():
     print(f"找到 {len(sheet_names)} 个工作表: {sheet_names}")
 
     exponential_results = []
-    linear_results = {}
-
-    # --- Create a single figure with a GridSpec layout ---
-    # Figure size suitable for a half-page width in a paper (e.g., ~7 inches wide)
-    fig = plt.figure(figsize=(8, 6.5))
-    gs = fig.add_gridspec(2, 2, height_ratios=[1, 1], width_ratios=[1, 1])
     
-    ax_exp = fig.add_subplot(gs[0, :])  # Top plot spanning 2 columns
-    ax_lin = fig.add_subplot(gs[1, 0])  # Bottom-left plot
-    ax_last = fig.add_subplot(gs[1, 1]) # Bottom-right plot
-
-    # Define a color cycle for the plots
-    colors = plt.cm.viridis(np.linspace(0, 1, num_exp_sheets))
-
-    # --- Part 1: Exponential Fits (for ax_exp and ax_lin) ---
+    # --- Part 1: Exponential Fits (Data Processing) ---
+    # This part is the same for all figures, so we process it once.
     for index, sheet_name in enumerate(sheet_names[:-1]):
         df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
 
@@ -196,11 +211,65 @@ def main():
             exponential_results.append({
                 'index': index + 1,
                 'temp_c': temp_c,
+                'temp_k': temp_k,
                 'data': data.copy(),
                 'I_s_fit': I_s_fit,
                 'k_fit': k_fit,
+                'slope': slope,
                 'r_squared': r_squared
             })
+            print(f"已处理工作表 '{sheet_name}' (T={temp_c}\u2103) 的指数数据。")
+            print(exponential_results)
+
+        except Exception as e:
+            print(f"错误: 无法对工作表 '{sheet_name}' 进行指数拟合: {e}")
+
+    # --- Part 2: Linear Fit Data Reading ---
+    df_linear_original = None
+    if sheet_names:
+        last_sheet_name = sheet_names[-1]
+        try:
+            df_linear_original = pd.read_excel(xls, sheet_name=last_sheet_name, header=0)
+            df_linear_original = df_linear_original.iloc[:, 1:3].apply(pd.to_numeric, errors='coerce').dropna().reset_index(drop=True)
+            df_linear_original.columns = ['T', 'U_F']
+        except Exception as e:
+            print(f"错误: 无法读取或处理最后一个工作表 '{last_sheet_name}': {e}")
+            df_linear_original = None
+
+    # --- Part 3: Generate 3 Versions of Plots and Reports ---
+    if df_linear_original is None or df_linear_original.empty:
+        print("错误：无法为 U-T 特性加载数据，已中止。")
+        return
+
+    for i in range(3):
+        # --- Create a new figure for each version ---
+        fig = plt.figure(figsize=(8, 6.5))
+        # Main GridSpec: 2 rows, 1 column. Top row for exp plot + legend, bottom row for the other two.
+        gs_main = fig.add_gridspec(2, 1, height_ratios=[1, 1])
+
+        # Nested GridSpec for the top row: 1 row, 2 columns (plot on left, legend on right)
+        gs_top = gs_main[0].subgridspec(1, 2, width_ratios=[7, 1])
+        # gs_top = gs_main[0].subgridspec(1, 2)
+        ax_exp = fig.add_subplot(gs_top[0])
+        ax_legend_container = fig.add_subplot(gs_top[1])
+        ax_legend_container.axis('off') # This axis is just for placing the legend
+
+        # Nested GridSpec for the bottom row: 1 row, 2 columns for the two plots
+        gs_bottom = gs_main[1].subgridspec(1, 2)
+        ax_lin = fig.add_subplot(gs_bottom[0])
+        ax_last = fig.add_subplot(gs_bottom[1])
+
+        # --- Plot Exponential Fits (same for all versions) ---
+        for result in exponential_results:
+            data = result['data']
+            U_F = data['U_F'].values
+            I_F = data['I_F'].values
+            temp_c = result['temp_c']
+            temp_k = result['temp_k']
+            I_s_fit = result['I_s_fit']
+            k_fit = result['k_fit']
+            slope = result['slope']
+            r_squared = result['r_squared']
 
             def exp_model_func(u, i_s, k_val):
                 return i_s * np.exp(e_charge * u / (k_val * temp_k))
@@ -208,96 +277,88 @@ def main():
             U_F_curve = np.linspace(U_F.min(), U_F.max(), 200)
             I_F_curve = exp_model_func(U_F_curve, I_s_fit, k_fit)
             
-            color = colors[index]
-            label = f'{temp_c}°C'
+            label_line1 = f'{temp_c}\u2103, $R^2={r_squared:.4f}$'
+            label_line2 = f'$I_F = {format_scientific_latex(I_s_fit)} \\cdot e^{{{slope:.2f} U_F}}$'
             
-            # Plot on exponential axis (top)
-            ax_exp.semilogy(U_F, I_F, 'o', color=color, markersize=3)
-            ax_exp.semilogy(U_F_curve, I_F_curve, '-', color=color, linewidth=1.5, label=f'{label} ($R^2={r_squared:.3f}$)')
+            a = ax_exp.semilogy(U_F, I_F, 'o', markersize=3)
+            color = a[0].get_color()
+            ax_exp.semilogy(U_F_curve, I_F_curve, '-', color=color, linewidth=1.5, label=f'{label_line1}\n{label_line2}')
 
-            # Plot on linear axis (bottom-left)
             ax_lin.plot(U_F, I_F, 'o', color=color, markersize=3)
-            ax_lin.plot(U_F_curve, I_F_curve, '-', color=color, linewidth=1.5, label=f'{label} ($R^2={r_squared:.3f}$)')
+            ax_lin.plot(U_F_curve, I_F_curve, '-', color=color, linewidth=1.5, label=f'{temp_c}\u2103 ($R^2={r_squared:.4f}$)')
+
+        # --- Process and Plot Linear Fit for the current group ---
+        linear_results = {}
+        if len(df_linear_original) > 2:
+            middle_data = df_linear_original.iloc[1:-1]
+            group_data = middle_data[middle_data.reset_index(drop=True).index % 3 == i]
+            current_data = pd.concat([df_linear_original.iloc[[0]], group_data, df_linear_original.iloc[[-1]]]).drop_duplicates()
+        else:
+            current_data = df_linear_original
+        
+        T_linear = current_data['T'].values
+        U_F_linear = current_data['U_F'].values
+
+        if len(T_linear) >= 2:
+            slope, intercept, r_value, _, _ = linregress(T_linear, U_F_linear)
+            U_g_fit = intercept
+            S_fit = slope
+            r_squared_linear = r_value**2
+
+            linear_results = {
+                'data': current_data.copy(),
+                'U_g_fit': U_g_fit,
+                'S_fit': S_fit,
+                'r_squared_linear': r_squared_linear
+            }
+            print(linear_results)
             
-            print(f"已处理工作表 '{sheet_name}' (T={temp_c}°C) 的数据用于合并绘图。")
-
-        except Exception as e:
-            print(f"错误: 无法对工作表 '{sheet_name}' 进行指数拟合: {e}")
-
-    # --- Part 2: Linear Fit (Last Sheet, for ax_last) ---
-    if sheet_names:
-        last_sheet_name = sheet_names[-1]
-        try:
-            df_linear = pd.read_excel(xls, sheet_name=last_sheet_name, header=0)
-            df_linear = df_linear.iloc[:, 1:3].apply(pd.to_numeric, errors='coerce').dropna()
-            df_linear.columns = ['T', 'U_F']
+            ax_last.scatter(T_linear, U_F_linear, s=15, label='实验数据')
             
-            T_linear = df_linear['T'].values
-            U_F_linear = df_linear['U_F'].values
+            T_fit_line = np.array([T_linear.min(), T_linear.max()])
+            U_F_fit_line = S_fit * T_fit_line + U_g_fit
+            
+            label_line1_linear = f'拟合, $R^2 = {r_squared_linear:.4f}$'
+            label_line2_linear = f'$U_F = {S_fit:.4f}T + {U_g_fit:.4f}$'
+            ax_last.plot(T_fit_line, U_F_fit_line, '-', color=plt.cm.get_cmap("viridis")(0.85), label=f'{label_line1_linear}\n{label_line2_linear}')
+        else:
+            print(f"警告: 第 {i+1} 组的数据不足以进行线性拟合。")
 
-            if len(T_linear) >= 2:
-                slope, intercept, r_value, _, _ = linregress(T_linear, U_F_linear)
-                U_g_fit = intercept
-                S_fit = slope
-                r_squared_linear = r_value**2
+        # --- Finalize and Save the Figure for the current group ---
+        ax_exp.set_xlabel('正向电压 $U_F$ (V)')
+        ax_exp.set_ylabel('正向电流 $I_F$ (µA)')
+        ax_exp.set_title('(a) PN结伏安特性曲线 (指数坐标)', loc='left')
+        
+        # Get handles and labels from ax_exp and place them in the dedicated legend axis
+        handles, labels = ax_exp.get_legend_handles_labels()
+        ax_legend_container.legend(handles, labels, fontsize=7, loc='center right', frameon=True)
 
-                linear_results = {
-                    'data': df_linear.copy(),
-                    'U_g_fit': U_g_fit,
-                    'S_fit': S_fit,
-                    'r_squared_linear': r_squared_linear
-                }
-                
-                ax_last.scatter(T_linear, U_F_linear, color=colors[0], s=15, label='实验数据')
-                
-                T_fit_line = np.array([T_linear.min(), T_linear.max()])
-                U_F_fit_line = S_fit * T_fit_line + U_g_fit
-                
-                fit_label_linear = (
-                    f'拟合: $R^2 = {r_squared_linear:.4f}$'
-                )
-                ax_last.plot(T_fit_line, U_F_fit_line, '-', color=colors[3], label=fit_label_linear)
+        ax_lin.set_xlabel('正向电压 $U_F$ (V)')
+        ax_lin.set_ylabel('正向电流 $I_F$ (µA)')
+        ax_lin.set_title('(b) PN结伏安特性曲线 (线性坐标)', loc='left')
+        ax_lin.legend(fontsize=7)
 
-            else:
-                print(f"警告: 在工作表 '{last_sheet_name}' 中的数据不足以进行线性拟合。")
+        ax_last.set_xlabel('绝对温度 $T$ (K)')
+        ax_last.set_ylabel('正向电压 $U_F$ (V)')
+        ax_last.set_title(f'(c) U-T关系 (第 {i+1} 组)', loc='left')
+        ax_last.legend(fontsize=8, loc='best')
+        ymin, ymax = ax_last.get_ylim()
+        if ymin > ymax:
+            ax_last.set_ylim(ymax, ymin)
 
-        except Exception as e:
-            print(f"错误: 无法处理或拟合最后一个工作表 '{last_sheet_name}': {e}")
+        # Adjust layout to make room for the legend outside the plot
+        fig.tight_layout()
+        fig.subplots_adjust(wspace=0.3, hspace=0.4)
+        
+        combined_filename = f'pn_knot_combined_plots_group_{i+1}.pdf'
+        fig.savefig(combined_filename, format='pdf', dpi=300, bbox_inches='tight')
+        plt.close(fig)
+        print(f"成功生成合并图表: {combined_filename}")
 
-    # --- Finalize and Save the Combined Figure ---
-    # (a) Exponential plot
-    ax_exp.set_xlabel('正向电压 $U_F$ (V)')
-    ax_exp.set_ylabel('正向电流 $I_F$ (µA)')
-    ax_exp.set_title('(a) PN结I-V特性 (指数坐标)', loc='left')
-    ax_exp.legend(fontsize=7)
-    ax_exp.grid(True, which="major", ls="--", linewidth=0.5)
+        # --- Generate Report for the current group ---
+        report_filename = f'results_report_group_{i+1}.md'
+        generate_report(exponential_results, linear_results, report_filename)
 
-    # (b) Linear plot
-    ax_lin.set_xlabel('正向电压 $U_F$ (V)')
-    ax_lin.set_ylabel('正向电流 $I_F$ (µA)')
-    ax_lin.set_title('(b) PN结I-V特性 (线性坐标)', loc='left')
-    ax_lin.legend(fontsize=7)
-    ax_lin.grid(True, which="major", ls="--", linewidth=0.5)
-
-    # (c) U-T plot
-    ax_last.set_xlabel('绝对温度 $T$ (K)')
-    ax_last.set_ylabel('正向电压 $U_F$ (V)')
-    ax_last.set_title('(c) 正向电压与温度关系', loc='left')
-    ax_last.legend(fontsize=7)
-    ax_last.grid(True, which="major", ls="--", linewidth=0.5)
-    ymin, ymax = ax_last.get_ylim()
-    if ymin > ymax:
-        ax_last.set_ylim(ymax, ymin)
-
-    # Adjust layout and save the single figure
-    fig.tight_layout(pad=1.0)
-    combined_filename = 'pn_knot_combined_plots.png'
-    fig.savefig(combined_filename, dpi=1000)
-    plt.close(fig)
-    print(f"成功生成合并图表: {combined_filename}")
-
-    # --- Part 3: Generate Report ---
-    generate_report(exponential_results, linear_results)
 
 if __name__ == '__main__':
     main()
