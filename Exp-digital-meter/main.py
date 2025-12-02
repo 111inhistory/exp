@@ -5,6 +5,7 @@ import scienceplots  # noqa: F401
 import matplotlib as mpl
 import warnings
 import re
+from cycler import cycler
 
 mpl.use("pgf")
 
@@ -32,6 +33,23 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 plt.style.use(["science"])
+
+# 设置全局默认颜色循环 (Nature Publishing Group 风格)
+mpl.rcParams["axes.prop_cycle"] = cycler(
+    color=[
+        "#E64B35",
+        "#4DBBD5",
+        "#00A087",
+        "#3C5488",
+        "#F39B7F",
+        "#8491B4",
+        "#91D1C2",
+        "#DC0000",
+        "#7E6148",
+        "#B09C85",
+    ]
+)
+
 
 fig, axs = plt.subplots(2, 2, figsize=(8, 6))
 data: dict[str, pd.DataFrame] = {}
@@ -61,7 +79,7 @@ for i, (filename, df) in enumerate(data.items()):
     delta_name = f"$\\Delta {df.columns[0][0]}$ / {unit_str}"
 
     # 绘制 x-y 散点图
-    ax.plot(meter_mod, delta, "o", linestyle="-", markersize=3, color="green")
+    ax.plot(meter_mod, delta, "x", linestyle="-", markersize=5, color="green")
     x_lim = ax.get_xlim()
     ax.hlines(
         0, xmin=x_lim[0], colors="gray", xmax=x_lim[1], linestyles="-."
@@ -71,7 +89,7 @@ for i, (filename, df) in enumerate(data.items()):
     ax.set_xlabel(f"${data_name}_改$ / {unit_str}")
     ax.set_ylabel(delta_name)
     ax.set_title(f"{range_str}{unit_str}量程数字电表校正曲线")
-    ax.legend()
+    # ax.legend()
 
 plt.tight_layout()
 plt.savefig("output.png", dpi=300)
