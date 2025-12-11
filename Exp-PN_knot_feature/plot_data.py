@@ -33,7 +33,7 @@ mpl.rcParams.update(pgf_config)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-plt.style.use(['science', 'no-latex', 'grid'])
+plt.style.use(['science', 'no-latex'])
 
 
 def generate_report(exponential_results, linear_results, report_path):
