@@ -1,16 +1,3 @@
-# /// script
-# requires-python = ">=3.14"
-# dependencies = [
-#     "matplotlib",
-#     "numpy",
-# ]
-#
-# [[tool.uv.index]]
-# url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-# default = true
-# ///
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
