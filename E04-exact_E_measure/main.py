@@ -3,6 +3,10 @@ import numpy as np
 t0 = 21.0  # degC
 E20 = 1.01860  # 20 degC ref power voltage
 En = E20 - 4.06e-5 * (t0 - 20.0)  # power voltage at t0 degC, arount 1.01856V
+print(f"En={En:.6f} V")
+En = 1.01856  # V
+Rn = En * 1e3  # ohm
+print(f"Rn={Rn:.2f} ohm")
 
 R1 = 313.93  # ohm
 R2 = 1486.09  # ohm
@@ -25,6 +29,7 @@ print(f"S={S:.2f} V^-1")
 
 U_Ex = np.sqrt(2e-4**2 + 2e-4**2 + (4.06e-5 / En) ** 2 + (Deltan / S) ** 2) * Ex
 print(f"U_Ex={U_Ex:.5f} V")
+print(f"Relative uncertainty of Ex: {U_Ex/Ex*100:.5f} %")
 
 Rs = 1000.0  # ohm
 DeltaRs = 0.1  # ohm
@@ -46,3 +51,4 @@ U_rx = (
     * rx
 )
 print(f"U_rx={U_rx:.5f} ohm")
+print(f"Relative uncertainty of rx: {U_rx/rx*100:.5f} %")
